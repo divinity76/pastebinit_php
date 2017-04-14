@@ -1,11 +1,14 @@
 #!/usr/bin/php
 <?php
 $pastebin = 'paste.fedoraporject.org';
+//$pastebin = 'pastebin.com';
+$api_key = 'required for pastebin.com only. currently not implemented for fedoraproject.';
 $expire_seconds = 1 * 60 * 60 * 24 * 365; // 1 year default expire
 $supportedPastebins = [ 
-		'paste.fedoraporject.org' 
+		'paste.fedoraporject.org',
+		'pastebin.com' 
 ];
-
+assert ( in_array ( $pastebin, $supportedPastebins ) );
 @ob_end_clean (); // little hack to remove the #!/usr/bin/php from output.. thanks "Viliam Simko"@stackoverflow
 
 hhb_init ();
@@ -36,9 +39,9 @@ switch ($pastebin) {
 			echo paste_fedoraproject ( $total_data );
 			break;
 		}
-	case 'pastebinit.com' :
+	case 'pastebin.com' :
 		{
-			
+			echo paste_pastebin ( $total_data, $api_key );
 			break;
 		}
 	default :
@@ -48,6 +51,38 @@ switch ($pastebin) {
 		}
 }
 echo PHP_EOL;
+function paste_pastebin(string $topaste, string $api_key): string {
+	$hc = new hhb_curl ();
+	$hc->_setComfortableOptions ();
+	$postfields = array (
+			'api_dev_key' => $api_key,
+			'api_option' => 'paste',
+			'api_paste_code' => $topaste,
+			'api_paste_name' => exec ( 'whoami' ) . '@' . exec ( 'hostname' ),
+			// TODO: try to detect and use api_paste_format?
+			'api_paste_private' => 1, // public = 0, unlisted = 1, private = 2
+			'api_paste_expire_date' => 'N'  // means NEVER.. the alternative is `1M` meaning 1 month..
+	);
+	$hc->setopt_array ( array (
+			CURLOPT_CONNECTTIMEOUT => 8,
+			CURLOPT_TIMEOUT => 5 * 60,
+			CURLOPT_POST => true,
+			CURLOPT_POSTFIELDS => ($postfields),
+			CURLOPT_URL => 'https://pastebin.com/api/api_post.php' 
+	) );
+	$hc->exec ();
+	$ret_parsed = filter_var ( $hc->getResponseBody (), FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED | FILTER_FLAG_HOST_REQUIRED | FILTER_FLAG_PATH_REQUIRED );
+	if (! is_string ( $ret_parsed )) {
+		// something bad happened...
+		ob_start ();
+		hhb_var_dump ( $hc->getStdErr (), $hc->getResponseBody (), $postfields );
+		$errstr = ob_get_clean ();
+		fwrite ( STDERR, $errstr );
+		throw new \RuntimeException ( 'pastebin api did not return a valid response (url). debug info above in stderr.' );
+	}
+	
+	return $ret_parsed;
+}
 function paste_fedoraproject(string $topaste): string {
 	$password = generatePassword ();
 	$data = array (
@@ -62,8 +97,8 @@ function paste_fedoraproject(string $topaste): string {
 		define ( 'JSON_UNESCAPED_LINE_TERMINATORS', 0, true );
 	}
 	$data_json = json_encode ( $data, JSON_NUMERIC_CHECK | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_LINE_TERMINATORS );
-	if(!is_string(json_decode($data_json,true,512)['contents'])){
-		throw new \RuntimeException('paste content could not be json-encoded (binary data perhaps?); - paste.fedoraproject.org does not support paste data that cannot be json-encoded.');
+	if (! is_string ( json_decode ( $data_json, true, 512 ) ['contents'] )) {
+		throw new \RuntimeException ( 'paste content could not be json-encoded (binary data perhaps?); - paste.fedoraproject.org does not support paste data that cannot be json-encoded.' );
 	}
 	$hc = new hhb_curl ();
 	$hc->_setComfortableOptions ();
