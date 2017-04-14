@@ -74,7 +74,7 @@ function paste_fedoraproject(string $topaste): string {
 			CURLOPT_HTTPHEADER => array (
 					'Content-Type: application/json' 
 			),
-			CURLOPT_POSTFIELDS => $data,
+			CURLOPT_POSTFIELDS => $data_json,
 			CURLOPT_URL => 'https://paste.fedoraproject.org/api/paste/submit'  // 'https://demo.modernpaste.com/api/paste/submit'
 	) );
 	$hc->exec ();
