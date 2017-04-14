@@ -15,9 +15,9 @@ as of writing, it only works with Fedora's pastebin ( http://paste.fedoraproject
 example install
 
 ```bash
-su
-wget -O /usr/bin/pastebinit.php https://raw.githubusercontent.com/divinity76/pastebinit_php/master/pastebinit.php
-chmod +x /usr/bin/pastebinit.php
-ln -s /usr/bin/pastebinit.php /usr/bin/pastebinit
-exit
+sudo rm -rfv /usr/bin/pastebinit.php /usr/bin/pastebinit
+sudo wget -O /usr/bin/pastebinit.php https://raw.githubusercontent.com/divinity76/pastebinit_php/master/pastebinit.php
+sudo chmod +x /usr/bin/pastebinit.php
+sudo ln -s /usr/bin/pastebinit.php /usr/bin/pastebinit
+
 ```
