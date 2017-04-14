@@ -79,7 +79,7 @@ function paste_fedoraproject(string $topaste): string {
 	if (! is_array ( $decoded ) || empty ( $decoded ['url'] )) {
 		// something bad happened..
 		ob_start ();
-		hhb_var_dump ( json_last_error_msg (), $hc->getStdErr (), $hc->getResponseBody (), is_array ( json_decode ( $hc->getResponseBody (), true, 512, JSON_BIGINT_AS_STRING | JSON_OBJECT_AS_ARRAY ) ), $decoded );
+		hhb_var_dump ( json_last_error_msg (), $data, $hc->getStdErr (), $hc->getResponseBody (), is_array ( json_decode ( $hc->getResponseBody (), true, 512, JSON_BIGINT_AS_STRING | JSON_OBJECT_AS_ARRAY ) ), $decoded );
 		$errstr = ob_get_clean ();
 		fwrite ( STDERR, $errstr );
 		throw new \RuntimeException ( 'got invalid response from api! debug data above in stderr.' );
