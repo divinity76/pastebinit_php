@@ -1,9 +1,36 @@
 #!/usr/bin/php
 <?php
+declare(strict_types = 1);
+define ( 'DEFAULT_PASTE_EXPIRE', 1 * 60 * 60 * 24 * 365 ); // 1 year default expire
+$tmp = (exec ( 'whoami' ) . '@' . exec ( 'hostname' ));
+define ( 'PASTEOBJ_TITLE_DEFAULT', $tmp );
+unset ( $tmp );
+class Pasteobj {
+	public $data = '';
+	public $expire_seconds = DEFAULT_PASTE_EXPIRE;
+	public $api_key = ''; // required for pastebin.com only. currently not implemented for fedoraproject. (literally, fedoraproject api mentions it, but its not implemented in the server yet, according to a guy on irc)';
+	public $title = PASTEOBJ_TITLE_DEFAULT;
+	public $passowrd = 'default set by __construct.';
+	public $mime = 'text/plain';
+	function __construct() {
+		$this->passowrd = generatePassword ();
+	}
+	public function guessMime(bool $set = true): string {
+		$tmpfileh = tmpfile ();
+		$tmpfile = stream_get_meta_data ( $tmpfileh ) ['uri'];
+		fwrite ( $tmpfileh, $this->data );
+		$mime = shell_exec ( 'file --brief --mime-type ' . escapeshellarg ( $tmpfile ) . ' 2>&1' );
+		$mime = trim ( $mime );
+		fclose ( $tmpfileh );
+		if ($set) {
+			$this->mime = $mime;
+		}
+		return $mime;
+	}
+}
+
 $pastebin = 'paste.fedoraporject.org';
-//$pastebin = 'pastebin.com';
-$api_key = 'required for pastebin.com only. currently not implemented for fedoraproject.';
-$expire_seconds = 1 * 60 * 60 * 24 * 365; // 1 year default expire
+// $pastebin = 'pastebin.com';
 $supportedPastebins = [ 
 		'paste.fedoraporject.org',
 		'pastebin.com' 
@@ -12,53 +39,143 @@ assert ( in_array ( $pastebin, $supportedPastebins ) );
 @ob_end_clean (); // little hack to remove the #!/usr/bin/php from output.. thanks "Viliam Simko"@stackoverflow
 
 hhb_init ();
-$stdin = fopen ( 'php://stdin', 'rb' );
-
-if (false === $stdin) {
-	throw new RuntimeException ( 'unable to open stdin!' );
-}
-
-@stream_set_blocking ( $stdin, true );
-$total_data = '';
-$newdata = '';
-$written_last = 0;
-$written_total = 0;
-
-while ( ! feof ( $stdin ) ) {
-	sleep ( 0 ); // $stdin should be blocking anyway...
-	$newdata = stream_get_contents ( $stdin );
-	if (false === $newdata || strlen ( $newdata ) === 0) {
-		continue;
+// var_dump ( $argc, $argv );
+if ($argc > 2) {
+	die ( 'currently only 0-1 arguments are allowed, which if given, is the file/folder to pastebin. if not given, paste data is taken from stdin.' );
+} elseif ($argc === 2) {
+	$toupload = $argv [1];
+	if (! is_readable ( $toupload )) {
+		die ( 'Error: that file/dir is not readable!' );
+	} elseif (is_dir ( $toupload )) {
+		$dir_iterator = new RecursiveDirectoryIterator ( $toupload );
+		$iterator = new RecursiveIteratorIterator ( $dir_iterator, RecursiveIteratorIterator::SELF_FIRST );
+		$treeGen = new RecursiveTreeIterator ( $dir_iterator );
+		$tree = [ ];
+		foreach ( $treeGen as $tmp ) {
+			$bname = basename ( $tmp );
+			if ($bname === '.' || $bname === '..') {
+				continue;
+			}
+			$tree [] = $tmp;
+		}
+		unset ( $treeGen, $tmp, $bname );
+		$i = 0;
+		ob_start();
+		foreach ( $iterator as $file ) {
+			$path = $file->getPathname ();
+			$bname = basename ( $path );
+			if ($bname === '.' || $bname === '..') {
+				continue;
+			}
+			echo $tree [$i ++], ': ';
+			if ($file->isDir ()) {
+				echo '(dir)';
+				echo PHP_EOL;
+				continue;
+			}
+			if (! $file->isFile ()) {
+				echo '(link/special file, will not attempt to read)';
+				echo PHP_EOL;
+				continue;
+			}
+			try {
+				$paste = new \Pasteobj ();
+				$paste->data = file_get_contents ( $path );
+				$type = $paste->guessMime ();
+				$paste->title = $bname;
+				echo $type,': ';
+				echo paste ( $paste );
+			} catch ( Throwable $ex ) {
+				//TODO: add some debug mode that prints $ex->getTrace() or something. 
+				echo 'error uploading: '.$ex->getMessage();
+			}
+			echo PHP_EOL;
+		}
+		unset($paste);
+		$final=ob_get_clean();
+		$paste=new \Pasteobj();
+		$paste->data=$final;
+		$paste->title=$toupload;
+		$paste->guessMime();
+		echo paste($paste);
+	} elseif (is_file ( $toupload )) {
+		echo pasteFile ( $toupload );
+	} else {
+		// ???
+		throw new \LogicException ( 'the path IS readable, IS NOT a directory, and IS NOT a file. i dont know what to do!' );
 	}
-	$total_data .= $newdata;
-	$written_total += $written_last;
-}
-switch ($pastebin) {
-	case 'paste.fedoraporject.org' :
-		{
-			echo paste_fedoraproject ( $total_data );
-			break;
+} else {
+	// stdin
+	$stdin = fopen ( 'php://stdin', 'rb' );
+	
+	if (false === $stdin) {
+		throw new RuntimeException ( 'unable to open stdin!' );
+	}
+	
+	@stream_set_blocking ( $stdin, true );
+	
+	$paste = new Pasteobj ();
+	$newdata = '';
+	
+	while ( ! feof ( $stdin ) ) {
+		sleep ( 0 ); // $stdin should be blocking anyway...
+		$newdata = stream_get_contents ( $stdin );
+		if (false === $newdata || strlen ( $newdata ) === 0) {
+			continue;
 		}
-	case 'pastebin.com' :
-		{
-			echo paste_pastebin ( $total_data, $api_key );
-			break;
-		}
-	default :
-		{
-			throw new \RuntimeException ( 'unsupported pastebin hardcoded: ' . hhb_return_var_dump ( $pastebin ) );
-			break;
-		}
+		$paste->data .= $newdata;
+	}
+	fclose ( $stdin );
+	$paste->guessMime ();
+	echo paste ( $paste );
 }
 echo PHP_EOL;
-function paste_pastebin(string $topaste, string $api_key): string {
+die ();
+
+function pasteFile(string $path, string $title = NULL): string {
+	$paste = new Pasteobj ();
+	$paste->data = file_get_contents ( $path );
+	// as is currently implemented, this will make a copy of the data to give to file.. this would be faster/require less IO if we did ourselves
+	// ofc, with the IO cache, if the data is small, no actual extra IO will occur anyway...
+	$paste->guessMime ();
+	if ($title !== NULL) {
+		$paste->title = basename ( $path );
+	} else {
+		$paste->title = $title;
+	}
+	return paste ( $paste );
+}
+
+function paste(\Pasteobj $paste): string {
+	global $pastebin;
+	$ret = '';
+	switch ($pastebin) {
+		case 'paste.fedoraporject.org' :
+			{
+				$ret = paste_fedoraproject ( $paste );
+				break;
+			}
+		case 'pastebin.com' :
+			{
+				$ret = paste_pastebin ( $paste );
+				break;
+			}
+		default :
+			{
+				throw new \RuntimeException ( 'unsupported pastebin hardcoded: ' . hhb_return_var_dump ( $pastebin ) );
+				break;
+			}
+	}
+	return $ret;
+}
+function paste_pastebin(\Pasteobj $paste): string {
 	$hc = new hhb_curl ();
 	$hc->_setComfortableOptions ();
 	$postfields = array (
-			'api_dev_key' => $api_key,
+			'api_dev_key' => $paste->api_key,
 			'api_option' => 'paste',
-			'api_paste_code' => $topaste,
-			'api_paste_name' => exec ( 'whoami' ) . '@' . exec ( 'hostname' ),
+			'api_paste_code' => $paste->data,
+			'api_paste_name' => $paste->title,
 			// TODO: try to detect and use api_paste_format?
 			'api_paste_private' => 1, // public = 0, unlisted = 1, private = 2
 			'api_paste_expire_date' => 'N'  // means NEVER.. the alternative is `1M` meaning 1 month..
@@ -83,14 +200,14 @@ function paste_pastebin(string $topaste, string $api_key): string {
 	
 	return $ret_parsed;
 }
-function paste_fedoraproject(string $topaste): string {
+function paste_fedoraproject(\Pasteobj $paste): string {
 	$password = generatePassword ();
 	$data = array (
-			'contents' => $topaste,
-			'expiry_time' => time () + (1 * 60 * 60 * 24 * 365), // approx 1 year
-			'title' => ($argv [0] ?? 'Untitled'),
-			'language' => 'text/plain', // Todo: try to auto-detect language?
-			'password' => $password 
+			'contents' => $paste->data,
+			'expiry_time' => time () + $paste->expire_seconds,
+			'title' => $paste->title,
+			'language' => $paste->mime,
+			'password' => $paste->passowrd 
 	);
 	if (! defined ( 'JSON_UNESCAPED_LINE_TERMINATORS' )) {
 		// php 7.0 compatibility, this constant was added in 7.1.0
@@ -122,7 +239,7 @@ function paste_fedoraproject(string $topaste): string {
 		fwrite ( STDERR, $errstr );
 		throw new \RuntimeException ( 'got invalid response from api! debug data above in stderr.' );
 	}
-	$url = $decoded ['url'] . '/raw?password=' . urlencode ( $password );
+	$url = $decoded ['url'] . '/raw?password=' . urlencode ( $paste->passowrd );
 	// hhb_var_dump ( $decoded, $password, $url );
 	return $url;
 
