@@ -50,7 +50,9 @@ if ($argc > 2) {
 		$dir_iterator = new RecursiveDirectoryIterator ( $toupload );
 		$iterator = new RecursiveIteratorIterator ( $dir_iterator, RecursiveIteratorIterator::SELF_FIRST );
 		$treeGen = new RecursiveTreeIterator ( $dir_iterator );
-		$tree = [ ];
+		$tree = [ 
+				'-'.$toupload 
+		];
 		foreach ( $treeGen as $tmp ) {
 			$bname = basename ( $tmp );
 			if ($bname === '.' || $bname === '..') {
