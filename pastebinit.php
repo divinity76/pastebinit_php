@@ -51,7 +51,7 @@ if ($argc > 2) {
 		$dir_iterator = new RecursiveDirectoryIterator ( $toupload );
 		$iterator = new RecursiveIteratorIterator ( $dir_iterator, RecursiveIteratorIterator::SELF_FIRST );
 		$treeGen = new RecursiveTreeIterator ( $dir_iterator );
-		echo $toupload, ': (dir)' . PHP_EOL;
+		echo $toupload, ': (dir, items: ' . countDir ( $toupload ) . ')' . PHP_EOL;
 		$tree = [ ];
 		foreach ( $treeGen as $tmp ) {
 			$bname = basename ( $tmp );
@@ -70,7 +70,7 @@ if ($argc > 2) {
 			}
 			echo $tree [$i ++], ': ';
 			if ($file->isDir ()) {
-				echo '(dir)';
+				echo '(dir, items: ' . countDir ( $path ) . ')';
 				echo PHP_EOL;
 				continue;
 			}
@@ -255,6 +255,13 @@ function generatePassword(int $len = 20): string {
 	return $ret;
 	// return substr ( strtr ( base64_encode ( random_bytes ( $len ) ), '+/', '-_' ), 0, $len );
 }
+
+function countDir(string $dir): int {
+	// thanks to baba@SO
+	$fi = new FilesystemIterator ( $dir, FilesystemIterator::SKIP_DOTS );
+	return iterator_count ( $fi );
+}
+
 // stuff from hhb_.inc.php:
 function hhb_var_dump() {
 	// informative wrapper for var_dump
