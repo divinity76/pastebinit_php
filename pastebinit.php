@@ -47,12 +47,12 @@ if ($argc > 2) {
 	if (! is_readable ( $toupload )) {
 		die ( 'Error: that file/dir is not readable!' );
 	} elseif (is_dir ( $toupload )) {
+		ob_start ();
 		$dir_iterator = new RecursiveDirectoryIterator ( $toupload );
 		$iterator = new RecursiveIteratorIterator ( $dir_iterator, RecursiveIteratorIterator::SELF_FIRST );
 		$treeGen = new RecursiveTreeIterator ( $dir_iterator );
-		$tree = [ 
-				'-'.$toupload 
-		];
+		echo $toupload, ': (dir)' . PHP_EOL;
+		$tree = [ ];
 		foreach ( $treeGen as $tmp ) {
 			$bname = basename ( $tmp );
 			if ($bname === '.' || $bname === '..') {
@@ -62,7 +62,6 @@ if ($argc > 2) {
 		}
 		unset ( $treeGen, $tmp, $bname );
 		$i = 0;
-		ob_start();
 		foreach ( $iterator as $file ) {
 			$path = $file->getPathname ();
 			$bname = basename ( $path );
@@ -85,21 +84,21 @@ if ($argc > 2) {
 				$paste->data = file_get_contents ( $path );
 				$type = $paste->guessMime ();
 				$paste->title = $bname;
-				echo $type,': ';
+				echo $type, ': ';
 				echo paste ( $paste );
 			} catch ( Throwable $ex ) {
-				//TODO: add some debug mode that prints $ex->getTrace() or something. 
-				echo 'error uploading: '.$ex->getMessage();
+				// TODO: add some debug mode that prints $ex->getTrace() or something.
+				echo 'error uploading: ' . $ex->getMessage ();
 			}
 			echo PHP_EOL;
 		}
-		unset($paste);
-		$final=ob_get_clean();
-		$paste=new \Pasteobj();
-		$paste->data=$final;
-		$paste->title=$toupload;
-		$paste->guessMime();
-		echo paste($paste);
+		unset ( $paste );
+		$final = ob_get_clean ();
+		$paste = new \Pasteobj ();
+		$paste->data = $final;
+		$paste->title = $toupload;
+		$paste->guessMime ();
+		echo paste ( $paste );
 	} elseif (is_file ( $toupload )) {
 		echo pasteFile ( $toupload );
 	} else {
