@@ -1,0 +1,4 @@
+; to see the defaults, simply open the source code of pastebinit.php and look for $config , as of writing, its on line 6.
+; PS, the default config is trying to be "secure by default", eg, links are hidden and password-protected, by default.
+[global]
+default_pastebin=pastebin.com
