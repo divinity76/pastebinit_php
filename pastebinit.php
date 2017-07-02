@@ -132,7 +132,6 @@ if ($argc > 2) {
 }
 echo PHP_EOL;
 die ();
-
 function pasteFile(string $path, string $title = NULL): string {
 	$paste = new Pasteobj ();
 	$paste->data = file_get_contents ( $path );
@@ -146,7 +145,6 @@ function pasteFile(string $path, string $title = NULL): string {
 	}
 	return paste ( $paste );
 }
-
 function paste(\Pasteobj $paste): string {
 	global $pastebin;
 	$ret = '';
@@ -243,7 +241,6 @@ function paste_fedoraproject(\Pasteobj $paste): string {
 	$url = $decoded ['url'] . '/raw?password=' . urlencode ( $paste->passowrd );
 	// hhb_var_dump ( $decoded, $password, $url );
 	return $url;
-
 }
 function generatePassword(int $len = 20): string {
 	$dict = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_';
@@ -255,7 +252,6 @@ function generatePassword(int $len = 20): string {
 	return $ret;
 	// return substr ( strtr ( base64_encode ( random_bytes ( $len ) ), '+/', '-_' ), 0, $len );
 }
-
 function countDir(string $dir): int {
 	// thanks to baba@SO
 	$fi = new FilesystemIterator ( $dir, FilesystemIterator::SKIP_DOTS );
@@ -607,10 +603,10 @@ class hhb_curl {
 	}
 	function _replaceCurl($newcurl, bool $closeold = true) {
 		if (! is_resource ( $newcurl )) {
-			throw new InvalidArgumentsException ( 'parameter 1 must be a curl resource!' );
+			throw new InvalidArgumentException ( 'parameter 1 must be a curl resource!' );
 		}
 		if (get_resource_type ( $newcurl ) !== 'curl') {
-			throw new InvalidArgumentsException ( 'parameter 1 must be a curl resource!' );
+			throw new InvalidArgumentException ( 'parameter 1 must be a curl resource!' );
 		}
 		if ($closeold) {
 			curl_close ( $this->curlh );
@@ -669,7 +665,6 @@ class hhb_curl {
 				CURLOPT_ENCODING => "", // << makes curl post all supported encodings, gzip/deflate/etc, makes transfers faster
 				CURLOPT_USERAGENT => 'hhb_curl_php; curl/' . $this->version () ['version'] . ' (' . $this->version () ['host'] . '); php/' . PHP_VERSION 
 		) ); //
-	
 	}
 	function errno(): int {
 		return curl_errno ( $this->curlh );
