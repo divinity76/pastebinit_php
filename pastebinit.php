@@ -252,7 +252,7 @@ function paste_ratma(\Pasteobj $paste): string {
 			fprintf ( STDERR, 'warning from api: %s\n', $warning );
 		}
 	}
-	hhb_var_dump ( $postfields, $resp, $parsed );
+	// hhb_var_dump ( $postfields, $resp, $parsed );
 	return $parsed->url;
 }
 function paste_pastebin(\Pasteobj $paste): string {
