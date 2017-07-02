@@ -1,16 +1,21 @@
 # pastebinit_php
 php script to upload stuff to pastebin websites - inspired by Stéphane Graber's pastebinit
 
-as of writing, it only works with Fedora's pastebin ( http://paste.fedoraproject.org/ ), takes everything in stdin, and upload it, takes NO arguments, and uploads with settings 
-```php
-[
-'paste_lang'=>'text',
-'mode'=>'json',
-'private_paste'=>'yes',
-'paste_expire' => 1 * 60 * 60 * 24 * 365
-]
+supports pastebin.com and paste.fedoraproject.org and paste.ratma.net.
+
+the default pastebin is paste.fedoraproject.org, and by default, everything is at decent "safe" defaults 
+(by "safe" i mean it generates non-public cryptographically-secure-random-password-protected URLs, and an expire date of 1 year)
+
+the (completely optional) custom configuration file resides in ~/.pastebinit.php.ini, and looks something like
+
+```ini
+[global]
+default_pastebin=paste.ratma.net
+generate_random_password=false
+default_hidden_url=false
 ```
-(past_expire means 1 year), and returns the wget friendly URL.
+(for a complete list of configuration options, refer to the source code, look for `$config` , as of writing its on line 6 )
+
 
 example install
 
