@@ -1,24 +1,52 @@
 #!/usr/bin/php
 <?php
 declare(strict_types = 1);
-define ( 'DEFAULT_PASTE_EXPIRE', 1 * 60 * 60 * 24 * 365 ); // 1 year default expire
-$tmp = (exec ( 'whoami' ) . '@' . exec ( 'hostname' ));
-define ( 'PASTEOBJ_TITLE_DEFAULT', $tmp );
-unset ( $tmp );
+@ob_end_clean (); // little hack to remove the #!/usr/bin/php from output.. thanks "Viliam Simko"@stackoverflow
+hhb_init (); // better error reporting, turning errors into Exceptions, and failed Assertions into exceptions.
+$config = [  // default settings here, may be overwritten by ~/.pastebinit.php.ini
+		'global' => [ 
+				'default_pastebin' => 'paste.fedoraproject.org',
+				'default_paste_expire_seconds' => 1 * 60 * 60 * 24 * 365, // 1 year default expire
+				'default_paste_title' => (exec ( 'whoami' ) . '@' . exec ( 'hostname' )),
+				'generate_random_password' => true,
+				'random_password_length' => 20 
+		] 
+];
+$inifile = $_SERVER ['HOME'] . DIRECTORY_SEPARATOR . '.pastebinit.php.ini';
+if (is_readable ( $inifile )) {
+	$iniconf = parse_ini_file ( $inifile, true, INI_SCANNER_TYPED );
+	if (false === $iniconf) {
+		throw new \RuntimeException ( '.pastebinit.php.ini exists, and is readable, but has an invalid format! fix it before using pastebinit.' );
+	}
+	$config = array_replace_recursive ( $config, $iniconf );
+	unset ( $iniconf );
+}
+unset ( $inifile );
 class Pasteobj {
+	/** @var string $data */
 	public $data = '';
-	public $expire_seconds = DEFAULT_PASTE_EXPIRE;
-	public $api_key = ''; // required for pastebin.com only. currently not implemented for fedoraproject. (literally, fedoraproject api mentions it, but its not implemented in the server yet, according to a guy on irc)';
-	public $title = PASTEOBJ_TITLE_DEFAULT;
-	public $password = 'default set by __construct.';
+	/** @var int $expire_seconds */
+	public $expire_seconds;
+	/** @var string $api_key */
+	public $api_key = ''; // required for pastebin.com only. currently not implemented for fedoraproject. (literally, fedoraproject api docs talks about it, but its not implemented in the server yet, according to a guy on irc)';
+	/** @var string $title */
+	public $title;
+	/** @var string $password */
+	public $password = '';
+	/** @var string $mime */
 	public $mime = 'text/plain';
 	function __construct() {
-		$this->password = generatePassword ();
+		global $config;
+		$this->expire_seconds = $config ['global'] ['default_paste_expire_seconds'];
+		$this->title = $config ['global'] ['default_paste_title'];
+		if ($config ['global'] ['generate_random_password']) {
+			$this->password = generatePassword ( $config ['global'] ['random_password_length'] );
+		}
 	}
 	public function guessMime(bool $set = true): string {
 		$tmpfileh = tmpfile ();
 		$tmpfile = stream_get_meta_data ( $tmpfileh ) ['uri'];
-		fwrite ( $tmpfileh, $this->data );
+		fwrite ( $tmpfileh, $this->data, 500 ); // first 500 bytes should be enough to guess the mime type
 		$mime = shell_exec ( 'file --brief --mime-type ' . escapeshellarg ( $tmpfile ) . ' 2>&1' );
 		$mime = trim ( $mime );
 		fclose ( $tmpfileh );
@@ -29,23 +57,21 @@ class Pasteobj {
 	}
 }
 
-$pastebin = 'paste.fedoraporject.org';
-// $pastebin = 'pastebin.com';
+$pastebin = $config ['global'] ['default_pastebin'];
 $supportedPastebins = [ 
-		'paste.fedoraporject.org',
+		'paste.fedoraproject.org',
 		'pastebin.com' 
 ];
-assert ( in_array ( $pastebin, $supportedPastebins ) );
-@ob_end_clean (); // little hack to remove the #!/usr/bin/php from output.. thanks "Viliam Simko"@stackoverflow
-
-hhb_init ();
+if (! in_array ( $pastebin, $supportedPastebins, true )) {
+	throw new \Exception ( 'Unsupported pastebin in [global] default_pastebin ! supported pastebins: ' . var_export ( $supportedPastebins, true ) . '. given pastebin: ' . hhb_return_var_dump ( $pastebin ) );
+}
 // var_dump ( $argc, $argv );
 if ($argc > 2) {
 	die ( 'currently only 0-1 arguments are allowed, which if given, is the file/folder to pastebin. if not given, paste data is taken from stdin.' );
 } elseif ($argc === 2) {
 	$toupload = $argv [1];
 	if (! is_readable ( $toupload )) {
-		die ( 'Error: that file/dir is not readable!' );
+		throw new Exception ( 'Error: that file/dir is not readable!' );
 	} elseif (is_dir ( $toupload )) {
 		ob_start ();
 		$dir_iterator = new RecursiveDirectoryIterator ( $toupload );
@@ -75,7 +101,7 @@ if ($argc > 2) {
 				continue;
 			}
 			if (! $file->isFile ()) {
-				echo '(link/special file, will not attempt to read)';
+				echo '(link or other special file, will not attempt to read)';
 				echo PHP_EOL;
 				continue;
 			}
@@ -97,7 +123,7 @@ if ($argc > 2) {
 		$paste = new \Pasteobj ();
 		$paste->data = $final;
 		$paste->title = $toupload;
-		$paste->guessMime ();
+		$paste->mime = 'text/plain;charset=utf8';
 		echo paste ( $paste );
 	} elseif (is_file ( $toupload )) {
 		echo pasteFile ( $toupload );
@@ -149,7 +175,7 @@ function paste(\Pasteobj $paste): string {
 	global $pastebin;
 	$ret = '';
 	switch ($pastebin) {
-		case 'paste.fedoraporject.org' :
+		case 'paste.fedoraproject.org' :
 			{
 				$ret = paste_fedoraproject ( $paste );
 				break;
@@ -161,7 +187,7 @@ function paste(\Pasteobj $paste): string {
 			}
 		default :
 			{
-				throw new \RuntimeException ( 'unsupported pastebin hardcoded: ' . hhb_return_var_dump ( $pastebin ) );
+				throw new \LogicException ( 'unsupported pastebin, and this error should have been caught much earlier in the code!: ' . hhb_return_var_dump ( $pastebin ) );
 				break;
 			}
 	}
@@ -181,7 +207,7 @@ function paste_pastebin(\Pasteobj $paste): string {
 	);
 	$hc->setopt_array ( array (
 			CURLOPT_CONNECTTIMEOUT => 8,
-			CURLOPT_TIMEOUT => 5 * 60,
+			CURLOPT_TIMEOUT => 10 * 60,
 			CURLOPT_POST => true,
 			CURLOPT_POSTFIELDS => ($postfields),
 			CURLOPT_URL => 'https://pastebin.com/api/api_post.php' 
@@ -200,7 +226,6 @@ function paste_pastebin(\Pasteobj $paste): string {
 	return $ret_parsed;
 }
 function paste_fedoraproject(\Pasteobj $paste): string {
-	$password = generatePassword ();
 	$data = array (
 			'contents' => $paste->data,
 			'expiry_time' => time () + $paste->expire_seconds,
@@ -220,7 +245,7 @@ function paste_fedoraproject(\Pasteobj $paste): string {
 	$hc->_setComfortableOptions ();
 	$hc->setopt_array ( array (
 			CURLOPT_CONNECTTIMEOUT => 8,
-			CURLOPT_TIMEOUT => 5 * 60,
+			CURLOPT_TIMEOUT => 10 * 60,
 			CURLOPT_POST => true,
 			CURLOPT_HTTPHEADER => array (
 					'Content-Type: application/json' 
@@ -242,7 +267,19 @@ function paste_fedoraproject(\Pasteobj $paste): string {
 	// hhb_var_dump ( $decoded, $password, $url );
 	return $url;
 }
-function generatePassword(int $len = 20): string {
+function generatePassword(int $len = NULL): string {
+	if ($len === NULL) {
+		global $config;
+		$len = $config ['global'] ['random_password_length'];
+	}
+	$len = filter_var ( $len, FILTER_VALIDATE_INT, [ 
+			'options' => [ 
+					'min_range' => 0 
+			] 
+	] );
+	if (false === $len) {
+		throw new \InvalidArgumentException ( 'invalid length given, must be an integer >=0' );
+	}
 	$dict = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_';
 	$randmax = strlen ( $dict ) - 1;
 	$ret = '';
