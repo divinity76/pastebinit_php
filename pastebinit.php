@@ -231,7 +231,9 @@ function paste_ratma(\Pasteobj $paste): string {
 	$hc->setopt_array ( array (
 			CURLOPT_POST => true,
 			CURLOPT_URL => 'https://paste.ratma.net/api1/put',
-			CURLOPT_POSTFIELDS => $postfields 
+			CURLOPT_POSTFIELDS => $postfields,
+			CURLOPT_CONNECTTIMEOUT => 10,
+			CURLOPT_TIMEOUT => 10 * 60 
 	) );
 	$hc->exec ();
 	$resp = $hc->getResponseBody ();
@@ -266,7 +268,7 @@ function paste_pastebin(\Pasteobj $paste): string {
 			'api_paste_expire_date' => 'N'  // means NEVER.. the alternative is `1M` meaning 1 month..
 	);
 	$hc->setopt_array ( array (
-			CURLOPT_CONNECTTIMEOUT => 8,
+			CURLOPT_CONNECTTIMEOUT => 10,
 			CURLOPT_TIMEOUT => 10 * 60,
 			CURLOPT_POST => true,
 			CURLOPT_POSTFIELDS => ($postfields),
@@ -304,7 +306,7 @@ function paste_fedoraproject(\Pasteobj $paste): string {
 	$hc = new hhb_curl ();
 	$hc->_setComfortableOptions ();
 	$hc->setopt_array ( array (
-			CURLOPT_CONNECTTIMEOUT => 8,
+			CURLOPT_CONNECTTIMEOUT => 10,
 			CURLOPT_TIMEOUT => 10 * 60,
 			CURLOPT_POST => true,
 			CURLOPT_HTTPHEADER => array (
