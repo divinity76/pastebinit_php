@@ -14,7 +14,7 @@ default_pastebin=paste.ratma.net
 generate_random_password=false
 default_hidden_url=false
 ```
-(for a complete list of configuration options, refer to the source code, look for `$config` , as of writing its on line 6 )
+(for a complete list of configuration options, refer to the source code, look for `$config` , as of writing its on line 6)
 
 
 example install
@@ -22,7 +22,7 @@ example install
 ```bash
 sudo rm -rfv /usr/bin/pastebinit.php /usr/bin/pastebinit
 sudo wget -O /usr/bin/pastebinit.php https://raw.githubusercontent.com/divinity76/pastebinit_php/master/pastebinit.php
-sudo chmod +x /usr/bin/pastebinit.php
+sudo chmod 0555 /usr/bin/pastebinit.php
 sudo ln -s /usr/bin/pastebinit.php /usr/bin/pastebinit
 
 ```
