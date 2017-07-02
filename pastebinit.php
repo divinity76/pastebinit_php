@@ -10,10 +10,10 @@ class Pasteobj {
 	public $expire_seconds = DEFAULT_PASTE_EXPIRE;
 	public $api_key = ''; // required for pastebin.com only. currently not implemented for fedoraproject. (literally, fedoraproject api mentions it, but its not implemented in the server yet, according to a guy on irc)';
 	public $title = PASTEOBJ_TITLE_DEFAULT;
-	public $passowrd = 'default set by __construct.';
+	public $password = 'default set by __construct.';
 	public $mime = 'text/plain';
 	function __construct() {
-		$this->passowrd = generatePassword ();
+		$this->password = generatePassword ();
 	}
 	public function guessMime(bool $set = true): string {
 		$tmpfileh = tmpfile ();
@@ -206,7 +206,7 @@ function paste_fedoraproject(\Pasteobj $paste): string {
 			'expiry_time' => time () + $paste->expire_seconds,
 			'title' => $paste->title,
 			'language' => $paste->mime,
-			'password' => $paste->passowrd 
+			'password' => $paste->password 
 	);
 	if (! defined ( 'JSON_UNESCAPED_LINE_TERMINATORS' )) {
 		// php 7.0 compatibility, this constant was added in 7.1.0
@@ -238,7 +238,7 @@ function paste_fedoraproject(\Pasteobj $paste): string {
 		fwrite ( STDERR, $errstr );
 		throw new \RuntimeException ( 'got invalid response from api! debug data above in stderr.' );
 	}
-	$url = $decoded ['url'] . '/raw?password=' . urlencode ( $paste->passowrd );
+	$url = $decoded ['url'] . '/raw?password=' . urlencode ( $paste->password );
 	// hhb_var_dump ( $decoded, $password, $url );
 	return $url;
 }
