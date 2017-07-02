@@ -7,7 +7,8 @@ $config = [  // default settings here, may be overwritten by ~/.pastebinit.php.i
 		'global' => [ 
 				'default_pastebin' => 'paste.fedoraproject.org',
 				'default_paste_expire_seconds' => 1 * 60 * 60 * 24 * 365, // 1 year default expire
-				'default_paste_title' => (exec ( 'whoami' ) . '@' . exec ( 'hostname' )),
+				'default_paste_title' => 'untitled.txt',
+				'default_hidden_url' => true,
 				'generate_random_password' => true,
 				'random_password_length' => 20 
 		] 
@@ -60,7 +61,8 @@ class Pasteobj {
 $pastebin = $config ['global'] ['default_pastebin'];
 $supportedPastebins = [ 
 		'paste.fedoraproject.org',
-		'pastebin.com' 
+		'pastebin.com',
+		'paste.ratma.net' 
 ];
 if (! in_array ( $pastebin, $supportedPastebins, true )) {
 	throw new \Exception ( 'Unsupported pastebin in [global] default_pastebin ! supported pastebins: ' . var_export ( $supportedPastebins, true ) . '. given pastebin: ' . hhb_return_var_dump ( $pastebin ) );
@@ -185,6 +187,14 @@ function paste(\Pasteobj $paste): string {
 				$ret = paste_pastebin ( $paste );
 				break;
 			}
+		case 'paste.ratma.net' :
+			{
+				$ret = paste_ratma ( $paste );
+				if (! empty ( $paste->password )) {
+					$ret .= " - password: " . $paste->password;
+				}
+				break;
+			}
 		default :
 			{
 				throw new \LogicException ( 'unsupported pastebin, and this error should have been caught much earlier in the code!: ' . hhb_return_var_dump ( $pastebin ) );
@@ -192,6 +202,58 @@ function paste(\Pasteobj $paste): string {
 			}
 	}
 	return $ret;
+}
+function paste_ratma(\Pasteobj $paste): string {
+	global $config;
+	if (false) {
+		class Response {
+			/** @var int $status_code */
+			public $status_code = 1;
+			/** @var string $message */
+			public $message = 'unknown error';
+			/** @var string $url */
+			public $url = '';
+			/** @var string $expire_date */
+			public $expire_date = '';
+			/** @var string[]|null $warnings */
+			public $warnings = [ ];
+		}
+	}
+	$hc = new hhb_curl ();
+	$hc->_setComfortableOptions ();
+	$postfields = [ 
+			// 'user_id'=>1,
+			'api_token' => $paste->api_key,
+			'upload_raw' => $paste->data,
+			'upload_content_type' => $paste->mime, // due to security considerations, this is not yet implemented in the server, and the server will make its own guess, but it is planned in the future.
+			'upload_name' => $paste->title,
+			'upload_password' => $paste->password,
+			'upload_hidden' => $config ['global'] ['default_hidden_url'],
+			'expire_seconds' => $paste->expire_seconds 
+	];
+	$hc->setopt_array ( array (
+			CURLOPT_POST => true,
+			CURLOPT_URL => 'https://paste.ratma.net/api1/put',
+			CURLOPT_POSTFIELDS => $postfields 
+	) );
+	$hc->exec ();
+	$resp = $hc->getResponseBody ();
+	/** @var Response $parsed */
+	$parsed = json_decode ( $resp );
+	if (! is_object ( $parsed ) || $parsed->status_code !== 0) {
+		// something bad happened...
+		ob_start ();
+		hhb_var_dump ( $hc->getStdErr (), $hc->getResponseBody (), $postfields );
+		$errstr = ob_get_clean ();
+		fwrite ( STDERR, $errstr );
+		throw new \RuntimeException ( 'pastebin api did not return a valid response (json). debug info above in stderr.' );
+	}
+	if (! empty ( $parsed->warnings )) {
+		foreach ( $parsed->warnings as $warning ) {
+			fprintf ( STDERR, 'warning from api: %s\n', $warning );
+		}
+	}
+	return $parsed->url;
 }
 function paste_pastebin(\Pasteobj $paste): string {
 	$hc = new hhb_curl ();
