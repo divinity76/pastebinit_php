@@ -110,6 +110,7 @@ if ($argc > 2) {
 			try {
 				$paste = new \Pasteobj ();
 				$paste->data = file_get_contents ( $path );
+				$paste->title = basename ( $path );
 				$type = $paste->guessMime ();
 				$paste->title = $bname;
 				echo $type, ': ';
@@ -166,11 +167,7 @@ function pasteFile(string $path, string $title = NULL): string {
 	// as is currently implemented, this will make a copy of the data to give to file.. this would be faster/require less IO if we did ourselves
 	// ofc, with the IO cache, if the data is small, no actual extra IO will occur anyway...
 	$paste->guessMime ();
-	if ($title !== NULL) {
-		$paste->title = basename ( $path );
-	} else {
-		$paste->title = $title;
-	}
+	$paste->title = basename ( $path );
 	return paste ( $paste );
 }
 function paste(\Pasteobj $paste): string {
@@ -253,6 +250,7 @@ function paste_ratma(\Pasteobj $paste): string {
 			fprintf ( STDERR, 'warning from api: %s\n', $warning );
 		}
 	}
+	hhb_var_dump ( $postfields, $resp, $parsed );
 	return $parsed->url;
 }
 function paste_pastebin(\Pasteobj $paste): string {
