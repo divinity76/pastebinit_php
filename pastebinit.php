@@ -299,7 +299,7 @@ function paste_fedoraproject(\Pasteobj $paste): string {
 		// php 7.0 compatibility, this constant was added in 7.1.0
 		define ( 'JSON_UNESCAPED_LINE_TERMINATORS', 0, true );
 	}
-	$data_json = json_encode ( $data, JSON_NUMERIC_CHECK | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_LINE_TERMINATORS );
+	$data_json = json_encode ( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_LINE_TERMINATORS );
 	if (! is_string ( json_decode ( $data_json, true, 512 ) ['contents'] )) {
 		throw new \RuntimeException ( 'paste content could not be json-encoded (binary data perhaps?); - paste.fedoraproject.org does not support paste data that cannot be json-encoded.' );
 	}
