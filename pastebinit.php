@@ -438,12 +438,12 @@ function hhb_var_dump() {
 						case T_INLINE_HTML :
 							{
 								$tmpUnsetKeyArray [] = $xKey;
-								continue;
+								continue 2;
 							}
 							;
 						default :
 							{
-								continue;
+								continue 2;
 							}
 					}
 				} else if (is_string ( $xToken )) {
@@ -642,6 +642,7 @@ function hhb_var_dump() {
 	echo $settings ['hhb_var_dump_append'];
 	// call_user_func_array("var_dump",$args);
 }
+
 function hhb_return_var_dump(): string // works like var_dump, but returns a string instead of printing it.
 {
 	$args = func_get_args (); // for <5.3.0 support ...
