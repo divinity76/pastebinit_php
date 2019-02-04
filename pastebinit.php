@@ -6,7 +6,7 @@ hhb_init (); // better error reporting, turning errors into Exceptions, and fail
 $config = [  // default settings here, may be overwritten by ~/.pastebinit.php.ini
 		'global' => [ 
 				'default_pastebin' => 'paste.fedoraproject.org',
-				'default_paste_expire_seconds' => 1 * 60 * 60 * 24 * 365, // 1 year default expire
+				'default_paste_expire_seconds' => 7 * 60 * 60 * 24, // 7 days default expire
 				'default_paste_title' => 'untitled.txt',
 				'default_hidden_url' => true,
 				'generate_random_password' => true,
