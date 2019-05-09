@@ -297,7 +297,7 @@ function paste_fedoraproject(\Pasteobj $paste): string {
 	);
 	if (! defined ( 'JSON_UNESCAPED_LINE_TERMINATORS' )) {
 		// php 7.0 compatibility, this constant was added in 7.1.0
-		define ( 'JSON_UNESCAPED_LINE_TERMINATORS', 0, true );
+		define ( 'JSON_UNESCAPED_LINE_TERMINATORS', 0 );
 	}
 	$data_json = json_encode ( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_LINE_TERMINATORS );
 	if (! is_string ( json_decode ( $data_json, true, 512 ) ['contents'] )) {
