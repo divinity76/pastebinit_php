@@ -2,7 +2,7 @@
 <?php
 declare(strict_types = 1);
 @ob_end_clean (); // little hack to remove the #!/usr/bin/php from output.. thanks "Viliam Simko"@stackoverflow
-hhb_init (); // better error reporting, turning errors into Exceptions, and failed Assertions into exceptions.
+init();
 $config = [  // default settings here, may be overwritten by ~/.pastebinit.php.ini
 		'global' => [ 
 				'default_pastebin' => 'paste.fedoraproject.org',
@@ -356,7 +356,18 @@ function countDir(string $dir): int {
 	$fi = new FilesystemIterator ( $dir, FilesystemIterator::SKIP_DOTS );
 	return iterator_count ( $fi );
 }
-
+function init(){
+	hhb_init (); // better error reporting, turning errors into Exceptions, and failed Assertions into exceptions.
+	if(!extension_loaded("json")){
+		die("error: this script requires the php-json extension (which is not installed)");
+	}
+	if(!extension_loaded("curl")){
+		die("error: this script requires the php-curl extension (which is not installed)");
+	}
+	if(!extension_loaded("xml")){
+		die("error: this script requires the php-xml extension (which is not installed)");
+	}
+}
 // stuff from hhb_.inc.php:
 function hhb_var_dump() {
 	// informative wrapper for var_dump
