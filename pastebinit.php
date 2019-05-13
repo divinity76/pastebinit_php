@@ -369,6 +369,12 @@ function init(){
 	}
 }
 // stuff from hhb_.inc.php:
+/**
+ * enhanced var_dump
+ *
+ * @param mixed $mixed...
+ * @return void
+ */
 function hhb_var_dump() {
 	// informative wrapper for var_dump
 	// <changelog>
@@ -653,7 +659,12 @@ function hhb_var_dump() {
 	echo $settings ['hhb_var_dump_append'];
 	// call_user_func_array("var_dump",$args);
 }
-
+/**
+ * works like var_dump, but returns a string instead of priting it (ob_ based)
+ *
+ * @param mixed $args...
+ * @return string
+ */
 function hhb_return_var_dump(): string // works like var_dump, but returns a string instead of printing it.
 {
 	$args = func_get_args (); // for <5.3.0 support ...
@@ -661,6 +672,10 @@ function hhb_return_var_dump(): string // works like var_dump, but returns a str
 	call_user_func_array ( 'var_dump', $args );
 	return ob_get_clean ();
 }
+
+/**
+ * enables hhb_exception_handler and hhb_assert_handler and sets error_reporting to max
+ */
 function hhb_init() {
 	static $firstrun = true;
 	if ($firstrun !== true) {
@@ -709,26 +724,58 @@ class hhb_curl {
 		assert ( true === $trun );
 		return /*true*/;
 	}
-	function _getCurlHandle()/*: curlresource*/ {
+	/**
+	 * returns the internal curl handle
+	 *
+	 * its probably a bad idea to mess with it, you'll probably never want to use this function.
+	 *
+	 * @return resource_curl
+	 */
+	public function _getCurlHandle()/*: curlresource*/ {
 		return $this->curlh;
 	}
-	function _replaceCurl($newcurl, bool $closeold = true) {
+	/**
+	 * replace the internal curl handle with another one...
+	 *
+	 * its probably a bad idea. you'll probably never want to use this function.
+	 *
+	 * @param resource_curl $newcurl
+	 * @param bool $closeold
+	 * @throws InvalidArgumentsException
+	 *
+	 * @return void
+	 */
+	public function _replaceCurl($newcurl, bool $closeold = true) {
 		if (! is_resource ( $newcurl )) {
-			throw new InvalidArgumentException ( 'parameter 1 must be a curl resource!' );
+			throw new InvalidArgumentsException ( 'parameter 1 must be a curl resource!' );
 		}
 		if (get_resource_type ( $newcurl ) !== 'curl') {
-			throw new InvalidArgumentException ( 'parameter 1 must be a curl resource!' );
+			throw new InvalidArgumentsException ( 'parameter 1 must be a curl resource!' );
 		}
 		if ($closeold) {
+			curl_setopt( $this->curlh, CURLOPT_VERBOSE, 0); // workaround for https://bugs.php.net/bug.php?id=78007
 			curl_close ( $this->curlh );
 		}
 		$this->curlh = $newcurl;
 		$this->_prepare_curl ();
 	}
-	static function init(string $url = null): hhb_curl {
-		return new hhb_curl ( $url );
+	/**
+	 * mimics curl_init, using hhb_curl::__construct
+	 *
+	 * @param string $url
+	 * @param bool $insecureAndComfortableByDefault
+	 * @return hhb_curl
+	 */
+	public static function init(string $url = null, bool $insecureAndComfortableByDefault = false): hhb_curl {
+		return new hhb_curl ( $url, $insecureAndComfortableByDefault );
 	}
-	function __construct(string $url = null) {
+	/**
+	 *
+	 * @param string $url
+	 * @param bool $insecureAndComfortableByDefault
+	 * @throws RuntimeException
+	 */
+	function __construct(string $url = null, bool $insecureAndComfortableByDefault = false) {
 		$this->curlh = curl_init ( '' ); // why empty string? PHP Fatal error: Uncaught TypeError: curl_init() expects parameter 1 to be string, null given
 		if (! $this->curlh) {
 			throw new RuntimeException ( 'curl_init failed!' );
@@ -755,15 +802,24 @@ class hhb_curl {
 		$this->stderr_file_handle = $fhandles [3]; // CURLOPT_STDERR
 		unset ( $fhandles );
 		$this->_prepare_curl ();
+		if ($insecureAndComfortableByDefault) {
+			$this->_setComfortableOptions ();
+		}
 	}
 	function __destruct() {
+		curl_setopt( $this->curlh, CURLOPT_VERBOSE, 0); // workaround for https://bugs.php.net/bug.php?id=78007
 		curl_close ( $this->curlh );
 		fclose ( $this->response_body_file_handle ); // CURLOPT_FILE
 		fclose ( $this->response_headers_file_handle ); // CURLOPT_WRITEHEADER
 		fclose ( $this->request_body_file_handle ); // CURLOPT_INFILE
 		fclose ( $this->stderr_file_handle ); // CURLOPT_STDERR
 	}
-	function _setComfortableOptions() {
+	/**
+	 * sets some insecure, but comfortable settings..
+	 *
+	 * @return self
+	 */
+	public function _setComfortableOptions(): self {
 		$this->setopt_array ( array (
 				CURLOPT_AUTOREFERER => true,
 				CURLOPT_BINARYTRANSFER => true,
@@ -776,20 +832,50 @@ class hhb_curl {
 				CURLOPT_ENCODING => "", // << makes curl post all supported encodings, gzip/deflate/etc, makes transfers faster
 				CURLOPT_USERAGENT => 'hhb_curl_php; curl/' . $this->version () ['version'] . ' (' . $this->version () ['host'] . '); php/' . PHP_VERSION 
 		) ); //
+		return $this;
 	}
-	function errno(): int {
+	/**
+	 * curl_errno — Return the last error number
+	 *
+	 * @return int
+	 */
+	public function errno(): int {
 		return curl_errno ( $this->curlh );
 	}
-	function error(): string {
+	/**
+	 * curl_error — Return a string containing the last error
+	 *
+	 * @return string
+	 */
+	public function error(): string {
 		return curl_error ( $this->curlh );
 	}
-	function escape(string $str): string {
+	/**
+	 * curl_escape — URL encodes the given string
+	 *
+	 * @param string $str
+	 * @return string
+	 */
+	public function escape(string $str): string {
 		return curl_escape ( $this->curlh, $str );
 	}
-	function unescape(string $str): string {
+	/**
+	 * curl_unescape — Decodes the given URL encoded string
+	 *
+	 * @param string $str
+	 * @return string
+	 */
+	public function unescape(string $str): string {
 		return curl_unescape ( $this->curlh, $str );
 	}
-	function exec(string $url = null): bool {
+	/**
+	 * executes the curl request (curl_exec)
+	 *
+	 * @param string $url
+	 * @throws RuntimeException
+	 * @return self
+	 */
+	public function exec(string $url = null): self {
 		$this->truncateFileHandles ();
 		// WARNING: some weird error where curl will fill up the file again with 00's when the file has been truncated
 		// until it is the same size as it was before truncating, then keep appending...
@@ -802,38 +888,78 @@ class hhb_curl {
 		if ($this->errno ()) {
 			throw new RuntimeException ( 'curl_exec failed. errno: ' . var_export ( $this->errno (), true ) . ' error: ' . var_export ( $this->error (), true ) );
 		}
-		return $ret;
+		return $this;
 	}
-	function file_create(string $filename, string $mimetype = null, string $postname = null): CURLFile {
+	/**
+	 * Create a CURLFile object for use with CURLOPT_POSTFIELDS
+	 *
+	 * @param string $filename
+	 * @param string $mimetype
+	 * @param string $postname
+	 * @return CURLFile
+	 */
+	public function file_create(string $filename, string $mimetype = null, string $postname = null): CURLFile {
 		return curl_file_create ( $filename, $mimetype, $postname );
 	}
-	function getinfo(int $opt) {
+	/**
+	 * Get information regarding the last transfer
+	 *
+	 * @param int $opt
+	 * @return mixed
+	 */
+	public function getinfo(int $opt) {
 		return curl_getinfo ( $this->curlh, $opt );
 	}
-	function pause(int $bitmask): int {
+	// pause is explicitly undocumented for now, but it pauses a running transfer
+	public function pause(int $bitmask): int {
 		return curl_pause ( $this->curlh, $bitmask );
 	}
-	function reset() {
+	/**
+	 * Reset all options
+	 */
+	public function reset(): self {
 		curl_reset ( $this->curlh );
 		$this->curloptions = [ ];
 		$this->_prepare_curl ();
+		return $this;
 	}
-	function setopt_array(array $options): bool {
+	/**
+	 * curl_setopt_array — Set multiple options for a cURL transfer
+	 *
+	 * @param array $options
+	 * @throws InvalidArgumentException
+	 * @return self
+	 */
+	public function setopt_array(array $options): self {
 		foreach ( $options as $option => $value ) {
 			$this->setopt ( $option, $value );
 		}
-		return true;
+		return $this;
 	}
-	function getResponseBody(): string {
+	/**
+	 * gets the last response body
+	 *
+	 * @return string
+	 */
+	public function getResponseBody(): string {
 		return file_get_contents ( stream_get_meta_data ( $this->response_body_file_handle ) ['uri'] );
 	}
-	//
-	function getResponseHeaders(): array {
+	/**
+	 * returns the response headers of the last request (when auto-following Location-redirect, only the last headers are returned)
+	 *
+	 * @return string[]
+	 */
+	public function getResponseHeaders(): array {
 		$text = file_get_contents ( stream_get_meta_data ( $this->response_headers_file_handle ) ['uri'] );
 		// ...
 		return $this->splitHeaders ( $text );
 	}
-	function getResponsesHeaders(): array {
+	/**
+	 * gets the response headers of all the requets for the last execution (including any Location-redirect autofollow headers)
+	 *
+	 * @return string[][]
+	 */
+	public function getResponsesHeaders(): array {
 		// var_dump($this->getStdErr());die();
 		// CONSIDER https://bugs.php.net/bug.php?id=65348
 		$Cr = "\x0d";
@@ -880,7 +1006,12 @@ class hhb_curl {
 		return $responses;
 	}
 	// we COULD have a getResponsesCookies too...
-	function getResponseCookies(): array {
+	/*
+	 * get last response cookies
+	 *
+	 * @return string[]
+	 */
+	public function getResponseCookies(): array {
 		$headers = $this->getResponsesHeaders ();
 		$headers_merged = array ();
 		foreach ( $headers as $headers2 ) {
@@ -890,11 +1021,16 @@ class hhb_curl {
 		}
 		return $this->parseCookies ( $headers_merged );
 	}
-	function getRequestBody(): string {
+	// explicitly undocumented for now..
+	public function getRequestBody(): string {
 		return file_get_contents ( stream_get_meta_data ( $this->request_body_file_handle ) ['uri'] );
 	}
-	// gets the headers of the LAST request..
-	function getRequestHeaders(): array {
+	/**
+	 * return headers of last execution
+	 *
+	 * @return string[]
+	 */
+	public function getRequestHeaders(): array {
 		$requestsHeaders = $this->getRequestsHeaders ();
 		$requestCount = count ( $requestsHeaders );
 		if ($requestCount === 0) {
@@ -903,7 +1039,12 @@ class hhb_curl {
 		return $requestsHeaders [$requestCount - 1];
 	}
 	// array(0=>array(request1_headers),1=>array(requst2_headers),2=>array(request3_headers))~
-	function getRequestsHeaders(): array {
+	/**
+	 * get last execution request headers
+	 *
+	 * @return string[]
+	 */
+	public function getRequestsHeaders(): array {
 		// CONSIDER https://bugs.php.net/bug.php?id=65348
 		$Cr = "\x0d";
 		$Lf = "\x0a";
@@ -933,14 +1074,28 @@ class hhb_curl {
 		unset ( $headers, $key, $val, $endPos, $startPos );
 		return $requests;
 	}
-	function getRequestCookies(): array {
+	/**
+	 * return last execution request cookies
+	 *
+	 * @return string[]
+	 */
+	public function getRequestCookies(): array {
 		return $this->parseCookies ( $this->getRequestHeaders () );
 	}
-	function getStdErr(): string {
+	/**
+	 * get everything curl wrote to stderr of the last execution
+	 *
+	 * @return string
+	 */
+	public function getStdErr(): string {
 		return file_get_contents ( stream_get_meta_data ( $this->stderr_file_handle ) ['uri'] );
 	}
-	function getStdOut(): string {
-		// alias..
+	/**
+	 * alias of getResponseBody
+	 *
+	 * @return string
+	 */
+	public function getStdOut(): string {
 		return $this->getResponseBody ();
 	}
 	protected function splitHeaders(string $headerstring): array {
@@ -1007,7 +1162,15 @@ class hhb_curl {
 		unset ( $header, $cookiename, $thepos );
 		return $returnCookies;
 	}
-	function setopt(int $option, $value): bool {
+	/**
+	 * Set an option for curl
+	 *
+	 * @param int $option
+	 * @param mixed $value
+	 * @throws InvalidArgumentException
+	 * @return self
+	 */
+	public function setopt(int $option, $value): self {
 		switch ($option) {
 			case CURLOPT_VERBOSE :
 				{
@@ -1027,6 +1190,11 @@ class hhb_curl {
 			case CURLOPT_WRITEHEADER :
 				{
 					trigger_error ( 'you should NOT use CURLOPT_WRITEHEADER. use getResponseHeaders() instead. expect problems now.', E_USER_WARNING );
+					break;
+				}
+			case CURLOPT_INFILE :
+				{
+					trigger_error ( 'you should NOT use CURLOPT_INFILE. use setRequestBody() instead. expect problems now.', E_USER_WARNING );
 					break;
 				}
 			case CURLOPT_STDERR :
@@ -1051,15 +1219,29 @@ class hhb_curl {
 		}
 		return $this->_setopt ( $option, $value );
 	}
-	private function _setopt(int $option, $value): bool {
+	/**
+	 *
+	 * @param int $option
+	 * @param unknown $value
+	 * @throws InvalidArgumentException
+	 * @return self
+	 */
+	private function _setopt(int $option, $value): self {
 		$ret = curl_setopt ( $this->curlh, $option, $value );
 		if (! $ret) {
 			throw new InvalidArgumentException ( 'curl_setopt failed. errno: ' . $this->errno () . '. error: ' . $this->error () . '. option: ' . var_export ( $this->_curlopt_name ( $option ), true ) . ' (' . var_export ( $option, true ) . '). value: ' . var_export ( $value, true ) );
 		}
 		$this->curloptions [$option] = $value;
-		return $ret; // true...
+		return $this;
 	}
-	function getopt(int $option, bool &$isset = NULL) {
+	/**
+	 * return an option previously given to setopt(_array)
+	 *
+	 * @param int $option
+	 * @param bool $isset
+	 * @return mixed|NULL
+	 */
+	public function getopt(int $option, bool &$isset = NULL) {
 		if (array_key_exists ( $option, $this->curloptions )) {
 			$isset = true;
 			return $this->curloptions [$option];
@@ -1068,10 +1250,24 @@ class hhb_curl {
 			return NULL;
 		}
 	}
-	function strerror(int $errornum): string {
+	/**
+	 * return a string representation of the given curl error code
+	 *
+	 * (ps, most of the time you'll probably want to use error() instead of strerror())
+	 *
+	 * @param int $errornum
+	 * @return string
+	 */
+	public function strerror(int $errornum): string {
 		return curl_strerror ( $errornum );
 	}
-	function version(int $age = CURLVERSION_NOW): array {
+	/**
+	 * gets cURL version information
+	 *
+	 * @param int $age
+	 * @return array
+	 */
+	public function version(int $age = CURLVERSION_NOW): array {
 		return curl_version ( $age );
 	}
 	private function _prepare_curl() {
@@ -1082,7 +1278,15 @@ class hhb_curl {
 		$this->_setopt ( CURLOPT_STDERR, $this->stderr_file_handle ); // CURLOPT_STDERR
 		$this->_setopt ( CURLOPT_VERBOSE, true );
 	}
-	function _curlopt_name(int $option)/*:mixed(string|false)*/{
+	/**
+	 * gets the constants name of the given curl options
+	 *
+	 * useful for error messages (instead of "FAILED TO SET CURLOPT 21387" , you can say "FAILED TO SET CURLOPT_VERBOSE" )
+	 *
+	 * @param int $option
+	 * @return mixed|boolean
+	 */
+	public function _curlopt_name(int $option)/*:mixed(string|false)*/{
 		// thanks to TML for the get_defined_constants trick..
 		// <TML> If you had some specific reason for doing it with your current approach (which is, to me, approaching the problem completely backwards - "I dug a hole! How do I get out!"), it seems that your entire function there could be replaced with: return array_flip(get_defined_constants(true)['curl']);
 		$curldefs = array_flip ( get_defined_constants ( true ) ['curl'] );
@@ -1092,7 +1296,15 @@ class hhb_curl {
 			return false;
 		}
 	}
-	function _curlopt_number(string $option)/*:mixed(int|false)*/{
+	/**
+	 * gets the constant number of the given constant name
+	 *
+	 * (what was i thinking!?)
+	 *
+	 * @param string $option
+	 * @return int|boolean
+	 */
+	public function _curlopt_number(string $option)/*:mixed(int|false)*/{
 		// thanks to TML for the get_defined_constants trick..
 		$curldefs = get_defined_constants ( true ) ['curl'];
 		if (isset ( $curldefs [$option] )) {
