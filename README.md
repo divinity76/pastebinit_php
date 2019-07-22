@@ -20,9 +20,9 @@ default_hidden_url=false
 example install
 
 ```bash
-sudo rm -rfv /usr/bin/pastebinit.php /usr/bin/pastebinit
-sudo wget -O /usr/bin/pastebinit.php https://raw.githubusercontent.com/divinity76/pastebinit_php/master/pastebinit.php
-sudo chmod 0555 /usr/bin/pastebinit.php
-sudo ln -s /usr/bin/pastebinit.php /usr/bin/pastebinit
+sudo rm -rfv /usr/local/bin/pastebinit.php /usr/local/bin/pastebinit
+sudo wget -O /usr/local/bin/pastebinit.php https://raw.githubusercontent.com/divinity76/pastebinit_php/master/pastebinit.php
+sudo chmod 0555 /usr/local/bin/pastebinit.php
+sudo ln -s /usr/local/bin/pastebinit.php /usr/local/bin/pastebinit
 
 ```
