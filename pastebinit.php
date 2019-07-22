@@ -10,7 +10,7 @@ $config = [  // default settings here, may be overwritten by ~/.pastebinit.php.i
 				'default_paste_title' => 'untitled.txt',
 				'default_hidden_url' => true,
 				'generate_random_password' => true,
-				'random_password_length' => 20 
+				'random_password_length' => 18
 		] 
 ];
 $inifile = $_SERVER ['HOME'] . DIRECTORY_SEPARATOR . '.pastebinit.php.ini';
@@ -342,7 +342,7 @@ function generatePassword(int $len = NULL): string {
 	if (false === $len) {
 		throw new \InvalidArgumentException ( 'invalid length given, must be an integer >=0' );
 	}
-	$dict = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_';
+	$dict = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; // -_
 	$randmax = strlen ( $dict ) - 1;
 	$ret = '';
 	for($i = 0; $i < $len; ++ $i) {
