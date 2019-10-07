@@ -342,7 +342,9 @@ function generatePassword(int $len = NULL): string {
 	if (false === $len) {
 		throw new \InvalidArgumentException ( 'invalid length given, must be an integer >=0' );
 	}
-	$dict = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; // -_
+	$dict = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_'; 
+	$problematic = "1IloO0-_"; //5S?
+	$dict = preg_replace ( '/['.preg_quote($problematic,'/').']/', "", $dict );
 	$randmax = strlen ( $dict ) - 1;
 	$ret = '';
 	for($i = 0; $i < $len; ++ $i) {
