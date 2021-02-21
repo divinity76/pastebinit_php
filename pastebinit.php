@@ -3,10 +3,11 @@
 declare(strict_types = 1);
 @ob_end_clean(); // little hack to remove the #!/usr/bin/php from output.. thanks "Viliam Simko"@stackoverflow
 init();
+// error_reporting(0);
 $config = [ // default settings here, may be overwritten by ~/.pastebinit.php.ini
     'global' => [
-        'default_pastebin' => 'paste.fedoraproject.org',
-        'default_paste_expire_seconds' => 7 * 60 * 60 * 24, // 7 days default expire
+        'default_pastebin' => 'pastebin.com',
+        'default_paste_expire_seconds' => 365 * 60 * 60 * 24, // 1 year default expire
         'default_paste_title' => 'untitled.txt',
         'default_hidden_url' => true,
         'generate_random_password' => true,
@@ -36,7 +37,6 @@ class Pasteobj
     /** @var string $api_key */
     public $api_key = '';
 
-    // required for pastebin.com only. currently not implemented for fedoraproject. (literally, fedoraproject api docs talks about it, but its not implemented in the server yet, according to a guy on irc)';
     /** @var string $title */
     public $title;
 
@@ -73,13 +73,13 @@ class Pasteobj
 
 $pastebin = $config['global']['default_pastebin'];
 $supportedPastebins = [
-    'paste.fedoraproject.org',
-    'pastebin.com',
-    'paste.ratma.net'
+    'pastebin.com'
 ];
 if (! in_array($pastebin, $supportedPastebins, true)) {
     throw new \Exception('Unsupported pastebin in [global] default_pastebin ! supported pastebins: ' . var_export($supportedPastebins, true) . '. given pastebin: ' . hhb_return_var_dump($pastebin));
 }
+/** @var int $argc */
+/** @var string[] $argv */
 // var_dump ( $argc, $argv );
 if ($argc > 2) {
     die('currently only 0-1 arguments are allowed, which if given, is the file/folder to pastebin. if not given, paste data is taken from stdin.');
@@ -191,22 +191,9 @@ function paste(\Pasteobj $paste): string
     global $pastebin;
     $ret = '';
     switch ($pastebin) {
-        case 'paste.fedoraproject.org':
-            {
-                $ret = paste_fedoraproject($paste);
-                break;
-            }
         case 'pastebin.com':
             {
                 $ret = paste_pastebin($paste);
-                break;
-            }
-        case 'paste.ratma.net':
-            {
-                $ret = paste_ratma($paste);
-                if (! empty($paste->password)) {
-                    $ret .= " - password: " . $paste->password;
-                }
                 break;
             }
         default:
@@ -216,70 +203,6 @@ function paste(\Pasteobj $paste): string
             }
     }
     return $ret;
-}
-
-function paste_ratma(\Pasteobj $paste): string
-{
-    global $config;
-    if (false) {
-
-        class Response
-        {
-
-            /** @var int $status_code */
-            public $status_code = 1;
-
-            /** @var string $message */
-            public $message = 'unknown error';
-
-            /** @var string $url */
-            public $url = '';
-
-            /** @var string $expire_date */
-            public $expire_date = '';
-
-            /** @var string[]|null $warnings */
-            public $warnings = [];
-        }
-    }
-    $hc = new hhb_curl();
-    $hc->_setComfortableOptions();
-    $postfields = [
-        // 'user_id'=>1,
-        'api_token' => $paste->api_key,
-        'upload_raw' => $paste->data,
-        'upload_content_type' => $paste->mime, // due to security considerations, this is not yet implemented in the server, and the server will make its own guess, but it is planned in the future.
-        'upload_name' => $paste->title,
-        'upload_password' => $paste->password,
-        'upload_hidden' => $config['global']['default_hidden_url'],
-        'expire_seconds' => $paste->expire_seconds
-    ];
-    $hc->setopt_array(array(
-        CURLOPT_POST => true,
-        CURLOPT_URL => 'https://paste.ratma.net/api1/put',
-        CURLOPT_POSTFIELDS => $postfields,
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_TIMEOUT => 10 * 60
-    ));
-    $hc->exec();
-    $resp = $hc->getResponseBody();
-    /** @var Response $parsed */
-    $parsed = json_decode($resp);
-    if (! is_object($parsed) || $parsed->status_code !== 0) {
-        // something bad happened...
-        ob_start();
-        hhb_var_dump($hc->getStdErr(), $hc->getResponseBody(), $postfields);
-        $errstr = ob_get_clean();
-        fwrite(STDERR, $errstr);
-        throw new \RuntimeException('pastebin api did not return a valid response (json). debug info above in stderr.');
-    }
-    if (! empty($parsed->warnings)) {
-        foreach ($parsed->warnings as $warning) {
-            fprintf(STDERR, 'warning from api: %s\n', $warning);
-        }
-    }
-    // hhb_var_dump ( $postfields, $resp, $parsed );
-    return $parsed->url;
 }
 
 function paste_pastebin(\Pasteobj $paste): string
@@ -314,50 +237,6 @@ function paste_pastebin(\Pasteobj $paste): string
     }
 
     return $ret_parsed;
-}
-
-function paste_fedoraproject(\Pasteobj $paste): string
-{
-    $data = array(
-        'contents' => $paste->data,
-        'expiry_time' => time() + $paste->expire_seconds,
-        'title' => $paste->title,
-        'language' => $paste->mime,
-        'password' => $paste->password
-    );
-    if (! defined('JSON_UNESCAPED_LINE_TERMINATORS')) {
-        // php 7.0 compatibility, this constant was added in 7.1.0
-        define('JSON_UNESCAPED_LINE_TERMINATORS', 0);
-    }
-    $data_json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_LINE_TERMINATORS);
-    if (! is_string(json_decode($data_json, true, 512)['contents'])) {
-        throw new \RuntimeException('paste content could not be json-encoded (binary data perhaps?); - paste.fedoraproject.org does not support paste data that cannot be json-encoded.');
-    }
-    $hc = new hhb_curl();
-    $hc->_setComfortableOptions();
-    $hc->setopt_array(array(
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_TIMEOUT => 10 * 60,
-        CURLOPT_POST => true,
-        CURLOPT_HTTPHEADER => array(
-            'Content-Type: application/json'
-        ),
-        CURLOPT_POSTFIELDS => $data_json,
-        CURLOPT_URL => 'https://paste.fedoraproject.org/api/paste/submit' // 'https://demo.modernpaste.com/api/paste/submit'
-    ));
-    $hc->exec();
-    $decoded = json_decode($hc->getResponseBody(), true, 512, JSON_BIGINT_AS_STRING | JSON_OBJECT_AS_ARRAY);
-    if (! is_array($decoded) || empty($decoded['url'])) {
-        // something bad happened..
-        ob_start();
-        hhb_var_dump(json_last_error_msg(), $data, $hc->getStdErr(), $hc->getResponseBody(), is_array(json_decode($hc->getResponseBody(), true, 512, JSON_BIGINT_AS_STRING | JSON_OBJECT_AS_ARRAY)), $decoded);
-        $errstr = ob_get_clean();
-        fwrite(STDERR, $errstr);
-        throw new \RuntimeException('got invalid response from api! debug data above in stderr.');
-    }
-    $url = $decoded['url'] . '/raw?password=' . urlencode($paste->password);
-    // hhb_var_dump ( $decoded, $password, $url );
-    return $url;
 }
 
 function generatePassword(int $len = NULL): string
@@ -1405,7 +1284,7 @@ class hhb_curl
      * gets cURL version information
      *
      * @param
-     *            @deprecated int $age
+     * @deprecated int $age
      * @return array
      */
     public function version(int $age = CURLVERSION_NOW): array
