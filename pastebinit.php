@@ -226,7 +226,7 @@ function paste_pastebin(\Pasteobj $paste): string
         CURLOPT_URL => 'https://pastebin.com/api/api_post.php'
     ));
     $hc->exec();
-    $ret_parsed = filter_var($hc->getResponseBody(), FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED | FILTER_FLAG_HOST_REQUIRED | FILTER_FLAG_PATH_REQUIRED);
+    $ret_parsed = filter_var($hc->getResponseBody(), FILTER_VALIDATE_URL, /*FILTER_FLAG_SCHEME_REQUIRED | FILTER_FLAG_HOST_REQUIRED | */ FILTER_FLAG_PATH_REQUIRED);
     if (! is_string($ret_parsed)) {
         // something bad happened...
         ob_start();
