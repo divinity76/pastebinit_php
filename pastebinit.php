@@ -23,7 +23,6 @@ if (is_readable($inifile)) {
     $config = array_replace_recursive($config, $iniconf);
     unset($iniconf);
 }
-unset($inifile);
 
 class Pasteobj
 {
@@ -207,6 +206,7 @@ function paste(\Pasteobj $paste): string
 
 function paste_pastebin(\Pasteobj $paste): string
 {
+    global $inifile;
     $hc = new hhb_curl();
     $hc->_setComfortableOptions();
     $postfields = array(
@@ -218,6 +218,10 @@ function paste_pastebin(\Pasteobj $paste): string
         'api_paste_private' => 1, // public = 0, unlisted = 1, private = 2
         'api_paste_expire_date' => 'N' // means NEVER.. the alternative is `1M` meaning 1 month..
     );
+    if (empty($postfields['api_dev_key'])) {
+        throw new \Exception("pastebin.com requires api_dev_key.. set it in \"{$inifile}\"");
+    }
+    var_dump($postfields);
     $hc->setopt_array(array(
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_TIMEOUT => 10 * 60,
