@@ -776,12 +776,15 @@ class hhb_curl
     {
         $trun = ftruncate($this->response_body_file_handle, 0);
         assert(true === $trun);
+        rewind($this->response_body_file_handle);
         $trun = ftruncate($this->response_headers_file_handle, 0);
         assert(true === $trun);
+        rewind($this->response_headers_file_handle);
         // $trun = ftruncate ( $this->request_body_file_handle, 0 );
         // assert ( true === $trun );
         $trun = ftruncate($this->stderr_file_handle, 0);
         assert(true === $trun);
+        rewind($this->stderr_file_handle);
         return /*true*/;
     }
 
@@ -1005,7 +1008,7 @@ class hhb_curl
      * @param int $opt
      * @return mixed
      */
-    public function getinfo(int $opt)
+    public function getinfo(int $opt = null)
     {
         return curl_getinfo($this->curlh, $opt);
     }
@@ -1357,7 +1360,7 @@ class hhb_curl
      * @throws InvalidArgumentException
      * @return self
      */
-    private function _setopt(int $option, $value): self
+    protected function _setopt(int $option, $value): self
     {
         $ret = curl_setopt($this->curlh, $option, $value);
         if (! $ret) {
@@ -1401,15 +1404,16 @@ class hhb_curl
     /**
      * gets cURL version information
      *
-     * @param int $age
+     * @param
+     *            @deprecated int $age
      * @return array
      */
     public function version(int $age = CURLVERSION_NOW): array
     {
-        return curl_version($age);
+        return curl_version();
     }
 
-    private function _prepare_curl()
+    protected function _prepare_curl()
     {
         $this->truncateFileHandles();
         $this->_setopt(CURLOPT_FILE, $this->response_body_file_handle); // CURLOPT_FILE
