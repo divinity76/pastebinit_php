@@ -11,7 +11,8 @@ $config = [ // default settings here, may be overwritten by ~/.pastebinit.php.in
         'default_paste_title' => 'untitled.txt',
         'default_hidden_url' => true,
         'generate_random_password' => true,
-        'random_password_length' => 18
+        'random_password_length' => 18,
+        'api_key' => ''
     ]
 ];
 $inifile = $_SERVER['HOME'] . DIRECTORY_SEPARATOR . '.pastebinit.php.ini';
@@ -50,6 +51,7 @@ class Pasteobj
         global $config;
         $this->expire_seconds = $config['global']['default_paste_expire_seconds'];
         $this->title = $config['global']['default_paste_title'];
+        $this->api_key = $config['global']['api_key'];
         if ($config['global']['generate_random_password']) {
             $this->password = generatePassword($config['global']['random_password_length']);
         }
@@ -216,12 +218,11 @@ function paste_pastebin(\Pasteobj $paste): string
         'api_paste_name' => $paste->title,
         // TODO: try to detect and use api_paste_format?
         'api_paste_private' => 1, // public = 0, unlisted = 1, private = 2
-        'api_paste_expire_date' => 'N' // means NEVER.. the alternative is `1M` meaning 1 month..
+        'api_paste_expire_date' => '1Y' // "1Y" means 1 year, "N" means NEVER.. the alternative is `1M` meaning 1 month..
     );
     if (empty($postfields['api_dev_key'])) {
-        throw new \Exception("pastebin.com requires api_dev_key.. set it in \"{$inifile}\"");
+        throw new \Exception("pastebin.com requires api_key.. set it in \"{$inifile}\"");
     }
-    var_dump($postfields);
     $hc->setopt_array(array(
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_TIMEOUT => 10 * 60,
@@ -239,7 +240,14 @@ function paste_pastebin(\Pasteobj $paste): string
         fwrite(STDERR, $errstr);
         throw new \RuntimeException('pastebin api did not return a valid response (url). debug info above in stderr.');
     }
-
+    if (false) {
+        // attempt to convert it to raw url...
+        $matches = [];
+        if (preg_match('/https\:\/\/pastebin\.com\/(<id>[[a-zA-Z0-9]+])\/?/', $ret_parsed, $matches)) {
+            var_dump($matches);
+            die();
+        }
+    }
     return $ret_parsed;
 }
 
